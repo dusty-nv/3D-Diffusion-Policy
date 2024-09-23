@@ -1,7 +1,8 @@
 import numpy as np
 from gym import utils
 from mjrl.envs import mujoco_env
-from mujoco_py import MjViewer
+#from mujoco_py import MjViewer
+import mujoco
 import os
 
 ADD_BONUS_REWARDS = True

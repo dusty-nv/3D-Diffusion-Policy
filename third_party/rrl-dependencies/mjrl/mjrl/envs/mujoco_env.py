@@ -9,8 +9,8 @@ import six
 import time as timer
 
 try:
-    import mujoco_py
-    from mujoco_py import load_model_from_path, MjSim, MjViewer
+    import mujoco
+    #from mujoco import load_model_from_path, MjSim, MjViewer
 except ImportError as e:
     raise error.DependencyNotInstalled("{}. (HINT: you need to install mujoco_py, and also perform the setup instructions here: https://github.com/openai/mujoco-py/.)".format(e))
 

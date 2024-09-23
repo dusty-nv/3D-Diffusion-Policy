@@ -1,8 +1,8 @@
 import numpy as np
 from gym import utils
 from mjrl.envs import mujoco_env
-from mujoco_py import MjViewer
-
+#from mujoco_py import MjViewer
+import mujoco
 
 class PointMassEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
