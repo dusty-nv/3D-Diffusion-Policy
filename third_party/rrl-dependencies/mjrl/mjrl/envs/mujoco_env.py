@@ -2,6 +2,8 @@ import os
 
 from gym import error, spaces
 from gym.utils import seeding
+from collections import namedtuple
+
 import numpy as np
 from os import path
 import gym
@@ -21,8 +23,9 @@ def get_sim(model_path):
         fullpath = os.path.join(os.path.dirname(__file__), "assets", model_path)
     if not path.exists(fullpath):
         raise IOError("File %s does not exist" % fullpath)
-    model = load_model_from_path(fullpath)
-    return MjSim(model)
+    model = mujoco.MjModel.from_xml_path(fullpath)
+    data = mujoco.MjData(model)
+    return model, data #MjSim(model)
 
 class MujocoEnv(gym.Env):
     """Superclass for all MuJoCo environments.
@@ -31,12 +34,14 @@ class MujocoEnv(gym.Env):
     def __init__(self, model_path=None, frame_skip=1, sim=None):
 
         if sim is None:
-            self.sim = get_sim(model_path)
+            self.model, self.data = get_sim(model_path)
         else:
-            self.sim = sim
-        self.data = self.sim.data
-        self.model = self.sim.model
+            self.model, self.data = sim.model, sim.data
 
+        self.sim = namedtuple('MjSim', ['model', 'data'])(
+            model=self.model, data=self.data
+        )
+        
         self.frame_skip = frame_skip
         self.metadata = {
             'render.modes': ['human', 'rgb_array'],
@@ -119,9 +124,9 @@ class MujocoEnv(gym.Env):
 
     def do_simulation(self, ctrl, n_frames):
         for i in range(self.model.nu):
-            self.sim.data.ctrl[i] = ctrl[i]
+            self.data.ctrl[i] = ctrl[i]
         for _ in range(n_frames):
-            self.sim.step()
+            mujoco.mj_step(self.model, self.data)#self.sim.step()
             if self.mujoco_render_frames is True:
                 self.mj_render()
 

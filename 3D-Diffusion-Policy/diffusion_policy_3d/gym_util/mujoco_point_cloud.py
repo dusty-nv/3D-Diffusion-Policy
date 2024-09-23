@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from PIL import Image as PIL_Image
 from typing import List
 import open3d as o3d
+import mujoco
 
 """
 Generates numpy rotation matrix from quaternion
@@ -134,7 +135,7 @@ class PointCloudGenerator(object):
         
         for idx in range(len(self.cam_names)):
             # get camera id
-            cam_id = self.sim.model.camera_name2id(self.cam_names[idx])
+            cam_id = mujoco.mj_name2id(self.sim.model, mujoco.mjtObj.mjOBJ_CAMERA, self.cam_names[idx])
             fovy = math.radians(self.sim.model.cam_fovy[cam_id])
             f = self.img_height / (2 * math.tan(fovy / 2))
             cam_mat = np.array(((f, 0, self.img_width / 2), (0, f, self.img_height / 2), (0, 0, 1)))
