@@ -179,6 +179,7 @@ class DP3(BasePolicy):
         obs_dict: must include "obs" key
         result: must include "action" key
         """
+        time_begin = time.perf_counter()
         # normalize input
         nobs = self.normalizer.normalize(obs_dict)
         # this_n_point_cloud = nobs['imagin_robot'][..., :3] # only use coordinate
@@ -204,7 +205,9 @@ class DP3(BasePolicy):
         if self.obs_as_global_cond:
             # condition through global feature
             this_nobs = dict_apply(nobs, lambda x: x[:,:To,...].reshape(-1,*x.shape[2:]))
+            encode_begin = time.perf_counter()
             nobs_features = self.obs_encoder(this_nobs)
+            encode_time = time.perf_counter() - encode_begin
             if "cross_attention" in self.condition_type:
                 # treat as a sequence
                 global_cond = nobs_features.reshape(B, self.n_obs_steps, -1)
@@ -226,12 +229,14 @@ class DP3(BasePolicy):
             cond_mask[:,:To,Da:] = True
 
         # run sampling
+        sample_begin = time.perf_counter()
         nsample = self.conditional_sample(
             cond_data, 
             cond_mask,
             local_cond=local_cond,
             global_cond=global_cond,
             **self.kwargs)
+        sample_time = time.perf_counter() - sample_begin
         
         # unnormalize prediction
         naction_pred = nsample[...,:Da]
@@ -243,12 +248,18 @@ class DP3(BasePolicy):
         action = action_pred[:,start:end]
         
         # get prediction
-
-
         result = {
             'action': action,
             'action_pred': action_pred,
         }
+        
+        time_elapsed = time.perf_counter() - time_begin
+        
+        if self.verbose:
+            inputs = [f'{k}={list(v.shape)}' for k,v in nobs.items()]
+            outputs = [f'{k}={list(v.shape)}' for k,v in result.items()]
+            #print(f"Predict  {' '.join(inputs)} {' '.join(outputs)}") 
+            print(f"\nPredict  total={time_elapsed*1000:.2f}ms  encode={encode_time*1000:.2f}ms  samples={sample_time*1000:.2f}ms") 
         
         return result
 

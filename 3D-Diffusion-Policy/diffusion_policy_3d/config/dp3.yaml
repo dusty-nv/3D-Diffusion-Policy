@@ -6,6 +6,7 @@ name: train_dp3
 task_name: ${task.name}
 shape_meta: ${task.shape_meta}
 exp_name: "debug"
+output_dir: "data/outputs"
 
 horizon: 4
 n_obs_steps: 2
@@ -54,7 +55,7 @@ policy:
   obs_as_global_cond: true
   shape_meta: ${shape_meta}
 
-  use_pc_color: false
+  use_pc_color: true
   pointnet_type: "pointnet"
 
 
@@ -108,23 +109,23 @@ training:
   rollout_every: 200
   checkpoint_every: 200
   val_every: 1
-  sample_every: 5
+  sample_every: 1
   max_train_steps: null
   max_val_steps: null
   tqdm_interval_sec: 1.0
 
 logging:
-  group: ${exp_name}
+  group: null
   id: null
   mode: online
-  name: ${training.seed}
+  name: ${exp_name}
   project: dp3
   resume: true
   tags:
   - dp3
 
 checkpoint:
-  save_ckpt: False # if True, save checkpoint every checkpoint_every
+  save_ckpt: true # if True, save checkpoint every checkpoint_every
   topk:
     monitor_key: val_loss #test_mean_score
     mode: min #max
@@ -134,14 +135,14 @@ checkpoint:
   save_last_snapshot: False
 
 multi_run:
-  run_dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+  run_dir: ${output_dir}/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
   wandb_name_base: ${now:%Y.%m.%d-%H.%M.%S}_${name}_${task_name}
 
 hydra:
   job:
     override_dirname: ${name}
   run:
-    dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+    dir: ${output_dir}/${now:%Y.%m.%d}/${now:%H.%M.%S}_${exp_name}
   sweep:
-    dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+    dir: ${output_dir}/${now:%Y.%m.%d}/${now:%H.%M.%S}_${exp_name}
     subdir: ${hydra.job.num}

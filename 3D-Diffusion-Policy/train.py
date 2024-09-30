@@ -3,7 +3,8 @@ if __name__ == "__main__":
     import os
     import pathlib
 
-    ROOT_DIR = os.getcwd()
+    ROOT_DIR = os.path.dirname(__file__) #os.getcwd()
+    os.chdir(ROOT_DIR)
     #ROOT_DIR = str(pathlib.Path(__file__).parent.parent.parent)
     #sys.path.append(ROOT_DIR)
     #os.chdir(ROOT_DIR)
@@ -60,7 +61,8 @@ class TrainDP3Workspace:
             except: # minkowski engine could not be copied. recreate it
                 self.ema_model = hydra.utils.instantiate(cfg.policy)
 
-
+        print(self.model)
+        
         # configure training state
         self.optimizer = hydra.utils.instantiate(
             cfg.optimizer, params=self.model.parameters())
@@ -74,8 +76,8 @@ class TrainDP3Workspace:
         
         if cfg.training.debug:
             cfg.training.num_epochs = 100
-            cfg.training.max_train_steps = 10
-            cfg.training.max_val_steps = 3
+            cfg.training.max_train_steps = 25
+            cfg.training.max_val_steps = 25
             cfg.training.rollout_every = 20
             cfg.training.checkpoint_every = 1
             cfg.training.val_every = 1
@@ -89,8 +91,8 @@ class TrainDP3Workspace:
             verbose = False
         
         RUN_ROLLOUT = False # rendering not working on aarch64
-        RUN_VALIDATION = True # reduce time cost
-        
+        RUN_VALIDATION = True
+
         # resume training
         if cfg.training.resume:
             lastest_ckpt_path = self.get_checkpoint_path()
@@ -144,21 +146,21 @@ class TrainDP3Workspace:
             assert isinstance(env_runner, BaseRunner)
         
         cfg.logging.name = str(cfg.logging.name)
-        cprint("-----------------------------", "yellow")
-        cprint(f"[WandB] group: {cfg.logging.group}", "yellow")
-        cprint(f"[WandB] name: {cfg.logging.name}", "yellow")
-        cprint("-----------------------------", "yellow")
+        cprint("------------------------------------", "yellow")
+        cprint(f"[WandB] project: {cfg.logging.project}", "yellow")
+        cprint(f"[WandB] name:    {cfg.logging.name}", "yellow")
+        cprint("------------------------------------", "yellow")
         # configure logging
         wandb_run = wandb.init(
             dir=str(self.output_dir),
             config=OmegaConf.to_container(cfg, resolve=True),
             **cfg.logging
         )
-        wandb.config.update(
+        '''wandb.config.update(
             {
                 "output_dir": self.output_dir,
             }
-        )
+        )'''
 
         # configure checkpoint
         topk_manager = TopKCheckpointManager(
@@ -176,6 +178,9 @@ class TrainDP3Workspace:
         # save batch for sampling
         train_sampling_batch = None
 
+        cprint(f"Train dataset:   {len(train_dataloader)*train_dataloader.batch_size} frames, batch size {train_dataloader.batch_size}", "green")
+        cprint(f"Val dataset:     {len(val_dataloader)*val_dataloader.batch_size} frames, batch size {val_dataloader.batch_size}", "green")
+        cprint(f"Diffusion steps: {self.model.noise_scheduler.config.num_train_timesteps} train, {self.model.num_inference_steps} inference", "green") 
 
         # training loop
         log_path = os.path.join(self.output_dir, 'logs.json.txt')
@@ -183,8 +188,8 @@ class TrainDP3Workspace:
             step_log = dict()
             # ========= train for this epoch ==========
             train_losses = list()
-            with tqdm.tqdm(train_dataloader, desc=f"Training epoch {self.epoch}", 
-                    leave=False, mininterval=cfg.training.tqdm_interval_sec) as tepoch:
+            with tqdm.tqdm(train_dataloader, desc=f"Train epoch {self.epoch}",
+                    leave=True, mininterval=cfg.training.tqdm_interval_sec) as tepoch:
                 for batch_idx, batch in enumerate(tepoch):
                     t1 = time.time()
                     # device transfer
@@ -225,12 +230,8 @@ class TrainDP3Workspace:
                     t2 = time.time()
                     
                     if verbose:
-                        print(f"total one step time: {t2-t1:.3f}")
-                        print(f" compute loss time: {t1_2-t1_1:.3f}")
-                        print(f" step optimizer time: {t1_3-t1_2:.3f}")
-                        print(f" update ema time: {t1_4-t1_3:.3f}")
-                        print(f" logging time: {t1_5-t1_4:.3f}")
-
+                        print(f"\nTrain step time: {t2-t1:.3f}  compute loss: {t1_2-t1_1:.3f}  step optimizer: {t1_3-t1_2:.3f}  update ema: {t1_4-t1_3:.3f}  log: {t1_5-t1_4:.3f}")
+  
                     is_last_batch = (batch_idx == (len(train_dataloader)-1))
                     if not is_last_batch:
                         # log of last step is combined with validation and rollout
@@ -250,7 +251,8 @@ class TrainDP3Workspace:
             policy = self.model
             if cfg.training.use_ema:
                 policy = self.ema_model
-            policy.eval()
+            policy.eval()  
+            policy.verbose = verbose
 
             # run rollout
             if (self.epoch % cfg.training.rollout_every) == 0 and RUN_ROLLOUT and env_runner is not None:
@@ -261,19 +263,18 @@ class TrainDP3Workspace:
                 # print(f"rollout time: {t4-t3:.3f}")
                 # log all
                 step_log.update(runner_log)
-
-            
-                
+  
             # run validation
             if (self.epoch % cfg.training.val_every) == 0 and RUN_VALIDATION:
                 with torch.no_grad():
                     val_losses = list()
-                    with tqdm.tqdm(val_dataloader, desc=f"Validation epoch {self.epoch}", 
-                            leave=False, mininterval=cfg.training.tqdm_interval_sec) as tepoch:
+                    with tqdm.tqdm(val_dataloader, desc=f"Val epoch {self.epoch}", 
+                            leave=True, mininterval=cfg.training.tqdm_interval_sec) as tepoch:
                         for batch_idx, batch in enumerate(tepoch):
                             batch = dict_apply(batch, lambda x: x.to(device, non_blocking=True))
                             loss, loss_dict = self.model.compute_loss(batch)
                             val_losses.append(loss)
+                            tepoch.set_postfix(loss=torch.mean(torch.tensor(val_losses)).item(), refresh=False)
                             if (cfg.training.max_val_steps is not None) \
                                 and batch_idx >= (cfg.training.max_val_steps-1):
                                 break
@@ -289,7 +290,6 @@ class TrainDP3Workspace:
                     batch = dict_apply(train_sampling_batch, lambda x: x.to(device, non_blocking=True))
                     obs_dict = batch['obs']
                     gt_action = batch['action']
-                    
                     result = policy.predict_action(obs_dict)
                     pred_action = result['action_pred']
                     mse = torch.nn.functional.mse_loss(pred_action, gt_action)
@@ -301,6 +301,20 @@ class TrainDP3Workspace:
                     del pred_action
                     del mse
 
+                    # sample val dataset
+                    sample_losses = list()
+                    with tqdm.tqdm(val_dataloader, desc=f"Sample epoch {self.epoch}", leave=True) as tepoch:
+                        for batch_idx, batch in enumerate(tepoch):
+                            batch = dict_apply(batch, lambda x: x.to(device, non_blocking=True))
+                            result = policy.predict_action(batch['obs'])
+                            sample_losses.append(torch.nn.functional.mse_loss(result['action_pred'], batch['action']))
+                            tepoch.set_postfix(mse=torch.mean(torch.tensor(sample_losses)).item(), refresh=False)
+                            if (cfg.training.max_val_steps is not None) \
+                                and batch_idx >= (cfg.training.max_val_steps-1):
+                                break
+                    if len(sample_losses) > 0:
+                        step_log['val_action_mse_error'] = torch.mean(torch.tensor(sample_losses)).item()
+      
             if env_runner is None:
                 step_log['test_mean_score'] = - train_loss
                 
