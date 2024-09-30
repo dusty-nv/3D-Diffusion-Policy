@@ -94,7 +94,7 @@ class BasicAdroitEnv(gym.Env): # , ABC
 
         if self.encoder is not None:
             for cam in self.cameras :
-                img = self._env.env.sim.render(width=self.width, height=self.height, mode='offscreen', camera_name=cam, device_id=0)
+                img = self._env.env.render(width=self.width, height=self.height, mode='offscreen', camera_name=cam, device_id=0)
                 # img = env.env.sim.render(width=84, height=84, mode='offscreen')
                 img = img[::-1, :, : ] # Image given has to be flipped
                 if self.channels_first :
@@ -111,7 +111,7 @@ class BasicAdroitEnv(gym.Env): # , ABC
         else:
             if not self.test_image:
                 for cam in self.cameras : # for each camera, render once
-                    img = self._env.env.sim.render(width=self.width, height=self.height, mode='offscreen', camera_name=cam, device_id=0) # TODO device id will think later
+                    img = self._env.env.render(width=self.width, height=self.height, mode='offscreen', camera_name=cam, device_id=0) # TODO device id will think later
                     # img = img[::-1, :, : ] # Image given has to be flipped
                     if self.channels_first :
                         img = img.transpose((2, 0, 1)) # then it's 3 x width x height
@@ -244,7 +244,7 @@ class BasicAdroitEnv(gym.Env): # , ABC
         imgs = [] # number of image is number of camera
 
         for cam in self.cameras : # for each camera, render once
-            img = self._env.env.sim.render(width=w, height=h, mode='offscreen', camera_name=cam, device_id=0) # TODO device id will think later
+            img = self._env.env.render(width=w, height=h, mode='offscreen', camera_name=cam, device_id=0) # TODO device id will think later
             # img = img[::-1, :, : ] # Image given has to be flipped
             if self.channels_first :
                 img = img.transpose((2, 0, 1)) # then it's 3 x width x height
@@ -321,7 +321,7 @@ class BasicFrankaEnv(gym.Env):
         if self.encoder is not None:
             for cam in self.cameras :
                 # img = self._env.env.sim.render(width=self.width, height=self.height, mode='offscreen', camera_name=cam, device_id=0)
-                img = self._env.env.sim.render(width=84, height=84)
+                img = self._env.env.render(width=84, height=84)
                 # img = env.env.sim.render(width=84, height=84, mode='offscreen')
                 img = img[::-1, :, : ] # Image given has to be flipped
                 if self.channels_first :
@@ -338,7 +338,7 @@ class BasicFrankaEnv(gym.Env):
         else:
             if not self.test_image:
                 for cam in self.cameras : # for each camera, render once
-                    img = self._env.env.sim.render(width=84, height=84)
+                    img = self._env.env.render(width=84, height=84)
                     # img = self._env.env.sim.render(width=self.width, height=self.height, mode='offscreen', camera_name=cam, device_id=0) # TODO device id will think later
                     # img = img[::-1, :, : ] # Image given has to be flipped
                     if self.channels_first :
@@ -470,7 +470,7 @@ class BasicFrankaEnv(gym.Env):
         imgs = [] # number of image is number of camera
 
         for cam in self.cameras : # for each camera, render once
-            img = self._env.env.sim.render(width=w, height=h, mode='offscreen', camera_name=cam, device_id=0) # TODO device id will think later
+            img = self._env.env.render(width=w, height=h, mode='offscreen', camera_name=cam, device_id=0) # TODO device id will think later
             # img = img[::-1, :, : ] # Image given has to be flipped
             if self.channels_first :
                 img = img.transpose((2, 0, 1)) # then it's 3 x width x height

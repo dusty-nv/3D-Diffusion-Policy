@@ -1,4 +1,5 @@
 import os
+import PIL
 
 from gym import error, spaces
 from gym.utils import seeding
@@ -38,11 +39,21 @@ class MujocoEnv(gym.Env):
         else:
             self.model, self.data = sim.model, sim.data
 
-        self.sim = namedtuple('MjSim', ['model', 'data'])(
-            model=self.model, data=self.data
+        self.sim = namedtuple('MjSim', ['model', 'data', 'env'])(
+            model=self.model, data=self.data, env=self,
         )
         
+        self.render_egl = None
+        self.render_ctx = None
+        self.render_cam = None
+        self.render_opt = None
+        self.render_dim = (-1,-1)
+        
+        self.scene = None
+        
+        self.frame_count = 0
         self.frame_skip = frame_skip
+        
         self.metadata = {
             'render.modes': ['human', 'rgb_array'],
             'video.frames_per_second': int(np.round(1.0 / self.dt))
@@ -105,8 +116,8 @@ class MujocoEnv(gym.Env):
     # -----------------------------
 
     def reset(self):
-        self.sim.reset()
-        self.sim.forward()
+        mujoco.mj_resetData(self.model, self.data)
+        mujoco.mj_forward(self.model, self.data)
         ob = self.reset_model()
         return ob
 
@@ -139,9 +150,51 @@ class MujocoEnv(gym.Env):
             #self.viewer._run_speed /= self.frame_skip
             self.viewer.render()
 
-    def render(self, *args, **kwargs):
-        pass
-        #return self.mj_render()
+    def render(self, width=640, height=480, mode='offscreen', camera_name='agentview', depth=False, device_id=0, **kwargs):
+        if mode != 'offscreen':
+            raise NotImplementedError(f"only offscreen rendering is currently supported (requested '{mode}')")
+         
+        if kwargs:
+            print(f"Warning - unused kwargs in mujoco_env.render()  {list(kwargs.keys())}")
+           
+        render_dim = (width, height)
+        
+        if self.render_dim != render_dim:
+            print(f"Creating EGL context {render_dim}  (previous {self.render_dim})")
+            
+            self.render_egl = mujoco.GLContext(max_width=render_dim[1], max_height=render_dim[0])
+            self.render_egl.make_current()
+            self.render_cam = mujoco.MjvCamera()
+            self.render_opt = mujoco.MjvOption()
+            self.render_dim = render_dim
+
+            mujoco.mjv_defaultCamera(self.render_cam)
+            mujoco.mjv_defaultOption(self.render_opt)
+            
+            self.scene = mujoco.MjvScene(self.model, maxgeom=10000)
+            self.viewport = mujoco.MjrRect(0, 0, self.render_dim[0], self.render_dim[1])
+            self.render_ctx = mujoco.MjrContext(self.model, mujoco.mjtFontScale.mjFONTSCALE_150.value)
+
+        self.render_egl.make_current()
+        mujoco.mjv_updateScene(self.model, self.data, self.render_opt, None, self.render_cam, 0, self.scene)
+        
+        img = np.ones((self.render_dim[1], self.render_dim[0], 3), dtype=np.uint8)
+        depth_img = np.zeros((self.render_dim[1], self.render_dim[0], 1), dtype=np.float32) if depth else None
+        
+        mujoco.mjr_render(self.viewport, self.scene, self.render_ctx)
+        mujoco.mjr_readPixels(img, depth_img, self.viewport, self.render_ctx)
+        
+        dump_dir = os.environ.get('MUJOCO_RENDER_DUMP_DIR')
+        
+        if dump_dir:
+            print(self.render_cam, self.scene, self.render_opt)
+            print(img.shape, img.dtype)
+            os.makedirs(dump_dir, exist_ok=True)
+            PIL.Image.fromarray(img).save(os.path.join(dump_dir, f'{self.frame_count}.jpg'))
+            
+        self.frame_count += 1  
+
+        return (img, depth_img) if depth else img
 
     def _get_viewer(self):
         pass

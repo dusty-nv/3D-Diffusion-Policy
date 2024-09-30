@@ -213,7 +213,7 @@ class PointCloudGenerator(object):
 
     # Render and process an image
     def captureImage(self, camera_name, capture_depth=True, device_id=0):
-        rendered_images = self.sim.render(self.img_width, self.img_height, camera_name=camera_name, depth=capture_depth, device_id=device_id)
+        rendered_images = self.sim.env.render(self.img_width, self.img_height, camera_name=camera_name, depth=capture_depth, device_id=device_id)
         if capture_depth:
             img, depth = rendered_images
             depth = self.verticalFlip(depth)

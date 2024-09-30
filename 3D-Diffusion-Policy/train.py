@@ -3,9 +3,10 @@ if __name__ == "__main__":
     import os
     import pathlib
 
-    ROOT_DIR = str(pathlib.Path(__file__).parent.parent.parent)
-    sys.path.append(ROOT_DIR)
-    os.chdir(ROOT_DIR)
+    ROOT_DIR = os.getcwd()
+    #ROOT_DIR = str(pathlib.Path(__file__).parent.parent.parent)
+    #sys.path.append(ROOT_DIR)
+    #os.chdir(ROOT_DIR)
 
 import os
 import hydra
@@ -87,7 +88,8 @@ class TrainDP3Workspace:
             RUN_CKPT = True
             verbose = False
         
-        RUN_VALIDATION = False # reduce time cost
+        RUN_ROLLOUT = False # rendering not working on aarch64
+        RUN_VALIDATION = True # reduce time cost
         
         # resume training
         if cfg.training.resume:

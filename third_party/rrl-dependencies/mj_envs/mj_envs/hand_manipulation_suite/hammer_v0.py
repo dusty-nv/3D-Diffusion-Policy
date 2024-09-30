@@ -95,10 +95,10 @@ class HammerEnvV0(mujoco_env.MujocoEnv, utils.EzPickle):
         return np.concatenate([qp[:-6], qv[-6:], palm_pos, obj_pos, obj_rot, target_pos, np.array([nail_impact])])
 
     def reset_model(self):
-        self.sim.reset()
+        mujoco.mj_resetData(self.model, self.data)
         target_bid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, 'nail_board')
         self.model.body_pos[target_bid,2] = self.np_random.uniform(low=0.1, high=0.25)
-        self.sim.forward()
+        mujoco.mj_forward(self.model, self.data)
         return self.get_obs()
 
     def get_env_state(self):
@@ -107,7 +107,7 @@ class HammerEnvV0(mujoco_env.MujocoEnv, utils.EzPickle):
         """
         qpos = self.data.qpos.ravel().copy()
         qvel = self.data.qvel.ravel().copy()
-        board_pos = self.model.body_pos[self.model.body_name2id('nail_board')].copy()
+        board_pos = self.model.body_pos[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, 'nail_board')].copy()
         target_pos = self.data.site_xpos[self.target_obj_sid].ravel().copy()
         return dict(qpos=qpos, qvel=qvel, board_pos=board_pos, target_pos=target_pos)
 

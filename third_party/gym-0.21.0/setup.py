@@ -51,7 +51,7 @@ setup(
         "cloudpickle>=1.2.0",
         "importlib_metadata>=4.8.1; python_version < '3.8'",
     ],
-    extras_require=extras,
+    #extras_require=extras,
     package_data={
         "gym": [
             "envs/mujoco/assets/*.xml",
